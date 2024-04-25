@@ -370,38 +370,38 @@ if __name__ == "__main__":
     loss_val = []
     accuracy_event1_train = []
     accuracy_event1_val = []
-    # for iteration in range(1000):
-    #     # Forward Propagation
-    #     y_pred = improved_model(X_train3)
-    #     y_valipred = improved_model(X_vali3)
-    #     # Loss Calculating
-    #     loss1 = criteria(y_pred.squeeze(), Y_train3)
-    #     loss2 = criteria(y_valipred.squeeze(), Y_vali3)
-    #     print('iteration:{}'.format(iteration))
-    #     print('loss_train:{}'.format(loss1.item()))
-    #     print('loss_val:{}'.format(loss2.item()))
-    #     loss_train.append(loss1.item())  # 保存每次迭代的损失值
-    #     loss_val.append(loss2.item())  # 保存每次迭代的损失值
-    #
-    #     # Accuracy Calculating
-    #     f1_measure_train = sklearn.metrics.f1_score(Y_train3.ge(0.5).float(), y_pred.ge(0.5).float())
-    #     f1_measure_val = sklearn.metrics.f1_score(Y_vali3.ge(0.5).float(), y_valipred.ge(0.5).float())
-    #     if iteration % 10 == 0:
-    #         print('F1-measure-validation:{}'.format(f1_measure_val))
-    #         print('F1-measure-validation:{}'.format(f1_measure_train))
-    #
-    #     accuracy_event1_train.append(f1_measure_train)
-    #     accuracy_event1_val.append(f1_measure_val)
-    #
-    #     # Backward Propagation
-    #     optimizer.zero_grad()
-    #     loss1.mean().backward()  # 使用平均损失进行反向传播
-    #
-    #     optimizer.step()
+    for iteration in range(1000):
+        # Forward Propagation
+        y_pred = improved_model(X_train3)
+        y_valipred = improved_model(X_vali3)
+        # Loss Calculating
+        loss1 = criteria(y_pred.squeeze(), Y_train3)
+        loss2 = criteria(y_valipred.squeeze(), Y_vali3)
+        print('iteration:{}'.format(iteration))
+        print('loss_train:{}'.format(loss1.item()))
+        print('loss_val:{}'.format(loss2.item()))
+        loss_train.append(loss1.item())  # 保存每次迭代的损失值
+        loss_val.append(loss2.item())  # 保存每次迭代的损失值
+
+        # Accuracy Calculating
+        f1_measure_train = sklearn.metrics.f1_score(Y_train3.ge(0.5).float(), y_pred.ge(0.5).float())
+        f1_measure_val = sklearn.metrics.f1_score(Y_vali3.ge(0.5).float(), y_valipred.ge(0.5).float())
+        if iteration % 10 == 0:
+            print('F1-measure-validation:{}'.format(f1_measure_val))
+            print('F1-measure-validation:{}'.format(f1_measure_train))
+
+        accuracy_event1_train.append(f1_measure_train)
+        accuracy_event1_val.append(f1_measure_val)
+
+        # Backward Propagation
+        optimizer.zero_grad()
+        loss1.mean().backward()  # 使用平均损失进行反向传播
+
+        optimizer.step()
 
 
 
-    #
+#     #
 #     batch_size = 6400
 #     total_batches1 = 100000 // batch_size
 #     total_batches2 = 33485 // batch_size
