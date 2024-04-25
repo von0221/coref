@@ -153,6 +153,34 @@ def cidai(id_t, feature_df):
     return id_t_with_one_hot
 
 
+def find_continuous_indices(data, threshold=0.5):
+    continuous_indices = []
+    start_index = None
+    for i, value in enumerate(data):
+        if value >= threshold:
+            if start_index is None:
+                start_index = i
+        else:
+            if start_index is not None:
+                continuous_indices.append((start_index, i - 1))
+                start_index = None
+    if start_index is not None:
+        continuous_indices.append((start_index, len(data) - 1))
+    return continuous_indices
+
+
+def count_overlap(list1, list2):
+    count = 0
+    for start1, end1 in list1:
+        for start2, end2 in list2:
+            if start1 == start2 and end1 ==end2:  # 判断两个连续部分是否有重叠
+                count += 1
+    return count
+
+
+
+
+
 class ImprovedMLP(nn.Module):
     def __init__(self, input_size, hidden_size1, hidden_size2):
         super(ImprovedMLP, self).__init__()
@@ -302,6 +330,12 @@ def main():
     # Train Process
     loss_train_ = []
     loss_val_ = []
+    class_counts1 = id_t_with_one_hot.groupby('id').size().reset_index(name='Count').shape[0]
+    print(class_counts1)
+    class_counts2 = id_v_with_one_hot.groupby('id').size().reset_index(name='Count').shape[0]
+    print(class_counts2)
+    class_counts3 = id_e_with_one_hot.groupby('id').size().reset_index(name='Count').shape[0]
+    print(class_counts3)
 
 
     for iteration_ in range(1000):    
@@ -346,41 +380,9 @@ def main():
             total_loss_valid = total_loss_valid.add(loss_valid)
         
     
-        # 初始化一个空列表，用于存储连续为1的词的连续行数的序号
-            continuous_ones_indices_valid = []
-# 遍历预测结果列表
-            start_index = None
-            for i, pred in enumerate(y_pred_valid):
-                if pred >= 0.5:  # 因为 y_pred_valid 是经过 sigmoid 处理后的概率值，因此判断阈值需要 >= 0.5
-                    if start_index is None:
-                        start_index = i
-                else:
-                    if start_index is not None:
-                        continuous_ones_indices_valid.append((start_index, i - 1))
-                        start_index = None
-    
-# 检查最后一个词是否是连续为1的
-            if start_index is not None:
-                continuous_ones_indices_valid.append((start_index, len(y_pred_valid) - 1))
-
-# 输出连续为1的词的连续行数的序号
-        # 初始化一个空列表，用于存储连续为1的词的连续行数的序号
-            continuous_ones_indices_valid_label = []
-
-# 遍历标签列表
-            start_index = None
-            for i, label in enumerate(Y_valid_chunk):
-                if label >= 0.5:  # 因为 Y_valid_chunk 是经过处理后的概率值，因此判断阈值需要 >= 0.5
-                    if start_index is None:
-                        start_index = i
-                else:
-                    if start_index is not None:
-                        continuous_ones_indices_valid_label.append((start_index, i - 1))
-                        start_index = None
-
-# 检查最后一个词是否是连续为1的
-            if start_index is not None:
-                continuous_ones_indices_valid_label.append((start_index, len(Y_valid_chunk) - 1))
+        
+            continuous_ones_indices_valid = find_continuous_indices(y_pred_valid)
+            continuous_ones_indices_valid_label = find_continuous_indices(Y_valid_chunk)
 
 # 输出连续为1的词的连续行数的序号
             overlap_count = count_overlap(continuous_ones_indices_valid, continuous_ones_indices_valid_label)
@@ -411,3 +413,11 @@ def main():
 
         for param_group_ in optimizer.param_groups:
             param_group_['lr'] = lr_
+
+# Model Evaluation
+    X_finaltest1 = torch.tensor(id_e_with_one_hot.iloc[:, [1, 2] + [i for i in range(8, 5011)]].values.astype('float32'))
+    Y_finaltest1 = torch.tensor(id_e_with_one_hot['a_in'].values.astype('float32'))
+
+    y_final_pred = improved_model(X_finaltest1)
+    
+main()
