@@ -34,6 +34,7 @@ def read_data(file_path):
         file_data = json.load(f)
     return file_data
 
+
 # 判断一行是否有数字，用于判断一行是不是句子开头
 def has_digit(line):
     for char in line:
@@ -152,7 +153,7 @@ def cidai(id_t, feature_df):
 
 
 def oversample_data(data, target_column):
-    X = data.iloc[:, [0, 1, 2, 3, 4] + [i for i in range(8, 5012)]]
+    X = data.iloc[:, [0, 1, 2] + [i for i in range(8, 5012)]]
     y = data[target_column]
     oversampler = RandomOverSampler(random_state=0)
     X_resampled, y_resampled = oversampler.fit_resample(X, y)
@@ -177,7 +178,7 @@ def main3(train_data, chunk_size):
     return X_train_resampled, y_train_resampled
 
 
-def find_continuous_indices(data, threshold=0.5):
+def find_continuous_indices(data, threshold):
     continuous_indices = []
     start_index = None
     for i, value in enumerate(data):
@@ -197,7 +198,7 @@ def count_overlap(list1, list2):
     count = 0
     for start1, end1 in list1:
         for start2, end2 in list2:
-            if start1 == start2 and end1 ==end2:  # 判断两个连续部分是否有重叠
+            if start1 == start2 and end1 == end2:  # 判断两个连续部分是否有重叠
                 count += 1
                 break
     return count
@@ -205,9 +206,10 @@ def count_overlap(list1, list2):
 
 def return_overlap(list1, list2):
     continuous_indices1 = []
+
     for start1, end1 in list1:
         for start2, end2 in list2:
-            if start1 == start2 and end1 ==end2:  # 判断两个连续部分是否有重叠
+            if start1 == start2 and end1 == end2:  # 判断两个连续部分是否有重叠
                 continuous_indices1.append((start1, end1))
                 break
     return continuous_indices1
@@ -238,10 +240,6 @@ class ImprovedMLP(nn.Module):
         return x
 
 
-
-
-
-
 if __name__ == "__main__":
     f = open('1998.txt', encoding='gbk')
     sen_words = f.readlines()
@@ -260,28 +258,23 @@ if __name__ == "__main__":
         sen_wordsnew.append(str)
 
         # Resegmentation
-    
 
     seg_sen = []
     seg_sen = [sentence.split() for sentence in sen_words]
     key = []
     for i in seg_sen:
         for j in i:
-        # 利用负向前瞻排除指定后缀的词
+            # 利用负向前瞻排除指定后缀的词
             m = re.findall(r'[\u4e00-\u9fff](?:(?!/t|/wd|/wu|/wj|/d|/p|/ul|/vl|不|/f|/vl|/vt|/vi).)*$', j)
-        # 如果 m 不为空，说明 j 符合条件，将其添加到 key 中
+            # 如果 m 不为空，说明 j 符合条件，将其添加到 key 中
             if m:
                 key.append(m)
-
 
     key_words = []
     for i in key:
         for j in i:
             key_words.append(j)
     # print(key_words)
-
-
-
 
     # 初始化词袋模型
     keywords = []
@@ -290,7 +283,7 @@ if __name__ == "__main__":
     item.sort(key=lambda x: x[1], reverse=True)
     for sen in item[:5000]:
         keywords.append(sen[0])
-    
+
     sentence = []  # 初始化一个空列表来存储句子
     current_sentence = ""  # 初始化一个空字符串来存储当前正在构建的句子
 
@@ -308,12 +301,12 @@ if __name__ == "__main__":
                 # 检查是否还有未保存的当前句子（即列表的最后一个元素之后的内容）
     if current_sentence:
         sentence.append(current_sentence)
-    
+
         # # Bag of Words (based on word frequency)
     bow_feature = CountVectorizer(vocabulary=keywords)
     wordsfeature = bow_feature.fit_transform(sentence).toarray()
 
-    feature_names = bow_feature.get_feature_names_out()  
+    feature_names = bow_feature.get_feature_names_out()
     # 转换为 DataFrame
     feature_df = pd.DataFrame(wordsfeature, columns=feature_names)
     print(feature_df)
@@ -361,8 +354,8 @@ if __name__ == "__main__":
 
     print(X_train_resampled3)
 
-    X_train_values3 = X_train_resampled3.iloc[:, [i for i in range(1, 5009)]].values.astype('float32')
-    X_vali_values3 = X_vali_resampled3.iloc[:, [i for i in range(1, 5009)]].values.astype('float32')
+    X_train_values3 = X_train_resampled3.iloc[:, [i for i in range(1, 5007)]].values.astype('float32')
+    X_vali_values3 = X_vali_resampled3.iloc[:, [i for i in range(1, 5007)]].values.astype('float32')
     X_train3 = torch.tensor(X_train_values3)
 
     X_vali3 = torch.tensor(X_vali_values3)
@@ -374,7 +367,7 @@ if __name__ == "__main__":
     print(class_counts9)
     # 模型初始化
     # 模型初始化
-    input_size = 5008
+    input_size = 5006
     hidden_size1 = 256
     hidden_size2 = 128
     hidden_size3 = 64
@@ -385,6 +378,20 @@ if __name__ == "__main__":
     # # 定义损失函数和优化器
     criteria = nn.BCELoss()
     optimizer = optim.Adam(improved_model.parameters(), lr=0.001, weight_decay=0.001)
+
+    if torch.cuda.is_available():
+        print("cuda")
+        device = torch.device("cuda")
+        improved_model.cuda()
+        X_train3 = X_train3.cuda()
+        Y_train3 = Y_train3.cuda()
+        X_vali3 = X_vali3.cuda()
+        Y_vali3 = Y_vali3.cuda()
+        print("Using CUDA for training.")
+    else:
+        device = torch.device("cpu")
+        print("CUDA is not available. Using CPU for training.")
+
     # Train Process
     loss_train = []
     loss_val = []
@@ -413,19 +420,28 @@ if __name__ == "__main__":
             start_idx = i * batch_size
             end_idx = min((i + 1) * batch_size, len(id_v_with_one_hot))  # 避免超出索引范围
             X_batch = id_v_with_one_hot.iloc[start_idx:end_idx,
-                      [1, 2, 3, 4] + [i for i in range(8, 5012)]].values.astype(
+                      [1, 2] + [i for i in range(8, 5012)]].values.astype(
                 'float32')
             Y_batch = id_v_with_one_hot['a_in'].iloc[start_idx:end_idx].values.astype('float32')
 
             # 将批次数据追加到列表中
             X_finalvali1_list.append(X_batch)
             Y_finalvali1_list.append(Y_batch)
-            class_counts2 += id_v_with_one_hot.iloc[start_idx:end_idx].groupby('id').size().reset_index(name='Count').shape[0]
+            class_counts2 += \
+            id_v_with_one_hot.iloc[start_idx:end_idx].groupby('id').size().reset_index(name='Count').shape[0]
         # 将列表转换为张量
         X_finalvali1 = torch.tensor(np.concatenate(X_finalvali1_list, axis=0))
         Y_finalvali1 = torch.tensor(np.concatenate(Y_finalvali1_list, axis=0))
-
+        if torch.cuda.is_available():
+            print("cuda")
+            X_finalvali1 = X_finalvali1.cuda()
+            Y_finalvali1 = Y_finalvali1.cuda()
+            print("Using CUDA for training.")
+        else:
+            device = torch.device("cpu")
+            print("CUDA is not available. Using CPU for training.")
         y_valipred = improved_model(X_finalvali1)
+
         loss2 = criteria(y_valipred.squeeze(), Y_finalvali1)
         print('iteration:{}'.format(iteration))
         print('loss_train:{}'.format(loss1.item()))
@@ -433,19 +449,7 @@ if __name__ == "__main__":
         loss_train.append(loss1.item())  # 保存每次迭代的损失值
         loss_val.append(loss2.item())  # 保存每次迭代的损失值
 
-        # Accuracy Calculating
-        f1_measure_train = sklearn.metrics.f1_score(Y_train3.ge(0.5).float(), y_pred.ge(0.5).float())
-        f1_measure_val = sklearn.metrics.f1_score(Y_finalvali1.ge(0.5).float(), y_valipred.ge(0.5).float())
-        if iteration % 10 == 0:
-            print('F1-measure-validation:{}'.format(f1_measure_train))
-            print('F1-measure-validation:{}'.format(f1_measure_val))
 
-
-
-
-
-        accuracy_event1_train.append(f1_measure_train)
-        accuracy_event1_val.append(f1_measure_val)
 
         # Backward Propagation
         optimizer.zero_grad()
@@ -467,7 +471,7 @@ if __name__ == "__main__":
     for i in range(total_batches):
         start_idx = i * batch_size
         end_idx = min((i + 1) * batch_size, len(id_e_with_one_hot))  # 避免超出索引范围
-        X_batch = id_e_with_one_hot.iloc[start_idx:end_idx, [1, 2, 3, 4] + [i for i in range(8, 5012)]].values.astype(
+        X_batch = id_e_with_one_hot.iloc[start_idx:end_idx, [1, 2] + [i for i in range(8, 5012)]].values.astype(
             'float32')
         Y_batch = id_e_with_one_hot['a_in'].iloc[start_idx:end_idx].values.astype('float32')
 
@@ -479,7 +483,14 @@ if __name__ == "__main__":
     # 将列表转换为张量
     X_finaltest1 = torch.tensor(np.concatenate(X_finaltest1_list, axis=0))
     Y_finaltest1 = torch.tensor(np.concatenate(Y_finaltest1_list, axis=0))
-
+    if torch.cuda.is_available():
+        print("cuda")
+        X_finaltest1 = X_finaltest1.cuda()
+        Y_finaltest1 = Y_finaltest1.cuda()
+        print("Using CUDA for training.")
+    else:
+        device = torch.device("cpu")
+        print("CUDA is not available. Using CPU for training.")
     y_final_pred = improved_model(X_finaltest1)
     loss_test = criteria(y_final_pred.squeeze(), Y_finaltest1)
     print()
@@ -489,140 +500,41 @@ if __name__ == "__main__":
 
     # 将两个列表组合成列表对的形式存储
     label_pairs = list(zip(a_in_list, a_be_list))
-    continuous_ones_indices_test = find_continuous_indices(y_final_pred)
-    continuous_ones_indices_test_label = find_continuous_indices(Y_finaltest1)
+    continuous_ones_indices_test = find_continuous_indices(y_final_pred, 0.5)
+    continuous_ones_indices_test_label = find_continuous_indices(Y_finaltest1, 0.99)
+    print(continuous_ones_indices_test_label)
     # 输出连续为1的词的连续行数的序号
     overlap_count = count_overlap(continuous_ones_indices_test, continuous_ones_indices_test_label)
 
     precition2 = overlap_count / class_counts1
-    num_rows = len(continuous_ones_indices_test_label)
-    print(num_rows)
-    num_rows2 = len(continuous_ones_indices_test)
-    print(num_rows2)
+    #test中总共有970个句子
+    num_rows = 970
     precition1 = overlap_count / num_rows
 
-    print('precition on test set:', precition2)
     print('precition on test set:', precition1)
 
     # 找到 预测值和真实值 中值都为 1 的行的索引
 
     resultlines = return_overlap(continuous_ones_indices_test, continuous_ones_indices_test_label)
+    count = 0
+    listflag = [0] * len(id_e_with_one_hot['id'].unique())
+    x = id_e_with_one_hot['id'].unique()
+
+
+    id_index = 0
     for start, end in resultlines:
         # 提取开始与结尾之间的行
         selected_rows = id_e_with_one_hot.iloc[start:end + 1]  # 加1是因为结束索引是不包含在内的
+        count += 1
 
-        # 打印每一行的 id 列和 word 列
-        for idx, row in selected_rows.iterrows():
-            print("ID: {}, Word: {}, NO:{}".format(row['id'], row['word'], row['se']))
+        if listflag[id_index] == 0:
+            for idx, row in selected_rows.iterrows():
+                # 打印每一行的 id 列和 word 列
+                id_value = row['id']
+                id_index = x.tolist().index(id_value)
+                listflag[id_index] = 1
+                print("ID: {}, Word: {}, NO:{}".format(row['id'], row['word'], row['se']))
+                id_index += 1
 
-    # indices_of_ones = [idx for idx, val in enumerate(y_final_pred) if val > 0.5]
-    # print(indices_of_ones)
-    # # 从 id_e_with_one_hot 中取出所有需要的行
-    # selected_rows = id_e_with_one_hot.iloc[indices_of_ones]
-    #
-    # # 打印每一行的 "word" 标签
-    # for idx, row in selected_rows.iterrows():
-    #     word = row['word']
-    #     id1 = row['id']
-    #     print("Id: {}, Word: {}".format(id1, word))
-
-# Model Evaluation
-
-
-
-#     #
-#     batch_size = 6400
-#     total_batches1 = 100000 // batch_size
-#     total_batches2 = 33485 // batch_size
-#
-#     # 定义损失函数和优化器
-#     criteria = nn.MSELoss()
-#     optimizer = optim.Adam(improved_model.parameters(), lr=0.01)
-#
-#     # Train Process
-#     loss_train_ = []
-#     loss_val_ = []
-#     class_counts1 = id_t_with_one_hot.groupby('id').size().reset_index(name='Count').shape[0]
-#     print(class_counts1)
-#     class_counts2 = id_v_with_one_hot.groupby('id').size().reset_index(name='Count').shape[0]
-#     print(class_counts2)
-#     class_counts3 = id_e_with_one_hot.groupby('id').size().reset_index(name='Count').shape[0]
-#     print(class_counts3)
-#
-#
-#     for iteration_ in range(1000):
-#     # 逐步进行预测
-#         total_loss_train = torch.tensor(0.0, requires_grad=True)  # 初始化训练集损失为0的张量，用于累加损失
-#         total_loss_valid = torch.tensor(0.0, requires_grad=True)  # 初始化验证集损失为0的张量，用于累加损失
-#         count_total1 = 0
-#         count_total2 = 0
-#         for i in range(total_batches1):
-#             start_idx = i * batch_size
-#             end_idx = (i + 1) * batch_size
-#
-#         # 获取当前训练批次的数据
-#             X_train_batch = id_t_with_one_hot.iloc[start_idx:end_idx, [2, 3] + [i for i in range(8, 5011)]]
-#             Y_train_batch = id_t_with_one_hot.iloc[start_idx:end_idx, [5]]
-#
-#             X_train_chunk = torch.tensor(X_train_batch.values.astype('float32'))
-#             Y_train_chunk = torch.tensor(Y_train_batch.values.astype('float32')).squeeze()
-#
-#         # 前向传播
-#             y_pred_train = improved_model(X_train_chunk).squeeze()
-#         # 计算训练集损失
-#             loss_train = criteria(y_pred_train.ge(0.5).float(), Y_train_chunk)
-#             total_loss_train = total_loss_train.add(loss_train)
-#
-#     # 在验证集上进行评估
-#         for i in range(total_batches2):
-#             start_idx = i * batch_size
-#             end_idx = (i + 1) * batch_size
-#
-#         # 获取当前验证批次的数据
-#             X_valid_batch = id_v_with_one_hot.iloc[start_idx:end_idx, [2, 3] + [i for i in range(8, 5011)]]
-#             Y_valid_batch = id_v_with_one_hot.iloc[start_idx:end_idx, [5]]
-#
-#             X_valid_chunk = torch.tensor(X_valid_batch.values.astype('float32'))
-#             Y_valid_chunk = torch.tensor(Y_valid_batch.values.astype('float32')).squeeze()
-#
-#         # 前向传播
-#             y_pred_valid = improved_model(X_valid_chunk).squeeze()
-#         # 计算验证集损失
-#             loss_valid = criteria(y_pred_valid.ge(0.5).float(), Y_valid_chunk)
-#             total_loss_valid = total_loss_valid.add(loss_valid)
-#
-#
-#
-#             continuous_ones_indices_valid = find_continuous_indices(y_pred_valid)
-#             continuous_ones_indices_valid_label = find_continuous_indices(Y_valid_chunk)
-#
-# # 输出连续为1的词的连续行数的序号
-#             overlap_count = count_overlap(continuous_ones_indices_valid, continuous_ones_indices_valid_label)
-#             count_total2 = count_total2 + overlap_count
-# # 输出结果
-#             print("两个连续部分列表的重叠部分个数为:", overlap_count)
-#     # 输出训练集损失和验证集损失
-#         print('epoch:{}'.format(iteration_))
-#         print('loss_train:{}'.format(total_loss_train.item() / total_batches1))  # 计算平均训练集损失
-#         print('loss_valid:{}'.format(total_loss_valid.item() / total_batches2))  # 计算平均验证集损失
-#
-#
-#         precition2 = count_total2 / class_counts2
-#         print('precition on validation set:', precition2)
-#
-#     # 反向传播及参数优化
-#         optimizer.zero_grad()
-#         total_loss_train.backward()
-#         optimizer.step()
-#
-#     # 动态更新学习率
-#         if iteration_ <= 300:
-#             lr_ = 0.01
-#         elif 300 < iteration_ <= 500:
-#             lr_ = 0.001
-#         else:
-#             lr_ = 0.0001
-#
-#         for param_group_ in optimizer.param_groups:
-#             param_group_['lr'] = lr_
-
+    precition3 = count / num_rows
+    print('precition on test set:', precition3)
