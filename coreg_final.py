@@ -19,7 +19,7 @@ import seaborn as sns
 import nltk
 from collections import Counter
 from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.metrics import confusion_matrix, precision_recall_curve
+from sklearn.metrics import confusion_matrix, precision_recall_curve, f1_score, accuracy_score
 from copy import deepcopy
 from imblearn.over_sampling import RandomOverSampler
 from torchsummary import summary
@@ -251,11 +251,7 @@ if __name__ == "__main__":
         if i == '\n':
             sen_words.remove(i)
 
-    # 移除标点符号等
-    sen_wordsnew = []
-    for i in sen_words:
-        str = re.sub('[a-zA-Z0-9’!"#$&\'()*+-.<=>@〓★【】{}‘’[\\]^_`{|}~\s]+', "", i)
-        sen_wordsnew.append(str)
+
 
         # Resegmentation
 
@@ -400,55 +396,65 @@ if __name__ == "__main__":
     for iteration in range(400):
         # Forward Propagation
         y_pred = improved_model(X_train3)
-        # y_valipred = improved_model(X_vali3)
+
         # Loss Calculating
         loss1 = criteria(y_pred.squeeze(), Y_train3)
-        # loss2 = criteria(y_valipred.squeeze(), Y_vali3)
 
-        # 初始化空列表来存储所有的特征和标签
+        # Data preparation for validation
         X_finalvali1_list = []
         Y_finalvali1_list = []
-
-        # 设置每次追加的数据批次大小
-        batch_size = 6400
-
-        # 计算总共需要追加多少次批次
+        batch_size = 10000
         total_batches = len(id_v_with_one_hot) // batch_size
         class_counts2 = 0
-        # 迭代读取数据并追加到列表中
+
         for i in range(total_batches):
             start_idx = i * batch_size
-            end_idx = min((i + 1) * batch_size, len(id_v_with_one_hot))  # 避免超出索引范围
+            end_idx = min((i + 1) * batch_size, len(id_v_with_one_hot))
             X_batch = id_v_with_one_hot.iloc[start_idx:end_idx,
-                      [1, 2] + [i for i in range(8, 5012)]].values.astype(
-                'float32')
+                      [1, 2] + [i for i in range(8, 5012)]].values.astype('float32')
             Y_batch = id_v_with_one_hot['a_in'].iloc[start_idx:end_idx].values.astype('float32')
 
-            # 将批次数据追加到列表中
             X_finalvali1_list.append(X_batch)
             Y_finalvali1_list.append(Y_batch)
             class_counts2 += \
             id_v_with_one_hot.iloc[start_idx:end_idx].groupby('id').size().reset_index(name='Count').shape[0]
-        # 将列表转换为张量
+
         X_finalvali1 = torch.tensor(np.concatenate(X_finalvali1_list, axis=0))
         Y_finalvali1 = torch.tensor(np.concatenate(Y_finalvali1_list, axis=0))
+
         if torch.cuda.is_available():
-            print("cuda")
             X_finalvali1 = X_finalvali1.cuda()
             Y_finalvali1 = Y_finalvali1.cuda()
             print("Using CUDA for training.")
         else:
             device = torch.device("cpu")
             print("CUDA is not available. Using CPU for training.")
+
+        # Forward propagation for validation
         y_valipred = improved_model(X_finalvali1)
 
+        # Loss calculation for validation
         loss2 = criteria(y_valipred.squeeze(), Y_finalvali1)
+
         print('iteration:{}'.format(iteration))
         print('loss_train:{}'.format(loss1.item()))
         print('loss_val:{}'.format(loss2.item()))
-        loss_train.append(loss1.item())  # 保存每次迭代的损失值
-        loss_val.append(loss2.item())  # 保存每次迭代的损失值
+        if iteration % 10 == 0:
+            # F1 Score calculation
+            f1 = f1_score(Y_train3.cpu().detach().numpy(), y_pred.cpu().detach().numpy().round())
+            f11 = f1_score(Y_finalvali1.cpu().detach().numpy(), y_valipred.cpu().detach().numpy().round())
 
+            # Accuracy calculation
+            accuracy = accuracy_score(Y_finalvali1.cpu().detach().numpy(), y_valipred.cpu().detach().numpy().round())
+            accuracy1 = accuracy_score(Y_train3.cpu().detach().numpy(), y_pred.cpu().detach().numpy().round())
+
+            print('F1 Score in train:{}'.format(f1))
+            print('F1 Score in val:{}'.format(f11))
+            print('Accuracy in train:{}'.format(accuracy1))
+            print('Accuracy in val:{}'.format(accuracy))
+
+        loss_train.append(loss1.item())
+        loss_val.append(loss2.item())
 
 
         # Backward Propagation
@@ -462,7 +468,7 @@ if __name__ == "__main__":
     Y_finaltest1_list = []
 
     # 设置每次追加的数据批次大小
-    batch_size = 6400
+    batch_size = 10000
 
     # 计算总共需要追加多少次批次
     total_batches = len(id_e_with_one_hot) // batch_size
@@ -484,34 +490,42 @@ if __name__ == "__main__":
     X_finaltest1 = torch.tensor(np.concatenate(X_finaltest1_list, axis=0))
     Y_finaltest1 = torch.tensor(np.concatenate(Y_finaltest1_list, axis=0))
     if torch.cuda.is_available():
-        print("cuda")
         X_finaltest1 = X_finaltest1.cuda()
         Y_finaltest1 = Y_finaltest1.cuda()
-        print("Using CUDA for training.")
     else:
         device = torch.device("cpu")
         print("CUDA is not available. Using CPU for training.")
     y_final_pred = improved_model(X_finaltest1)
     loss_test = criteria(y_final_pred.squeeze(), Y_finaltest1)
     print()
+    print("开始测试部分")
     print('loss_test:{}'.format(loss_test.item()))
+    f2 = f1_score(Y_finaltest1.cpu().detach().numpy(), y_final_pred.cpu().detach().numpy().round())
+    print('F1 Score in test:{}'.format(f2))
+    accuracy2 = accuracy_score(Y_finaltest1.cpu().detach().numpy(), y_final_pred.cpu().detach().numpy().round())
+    print('Accuracy in test:{}'.format(accuracy2))
+
     a_in_list = id_e_with_one_hot['a_fron'].tolist()
     a_be_list = id_e_with_one_hot['a_be'].tolist()
 
     # 将两个列表组合成列表对的形式存储
     label_pairs = list(zip(a_in_list, a_be_list))
+    # 输出预测值连续>0.5的词的连续行数的序号,二分类中>0.5便视为负例
     continuous_ones_indices_test = find_continuous_indices(y_final_pred, 0.5)
+    # 输出真实值连续为1的词的连续行数的序号
     continuous_ones_indices_test_label = find_continuous_indices(Y_finaltest1, 0.99)
+
+    print("真实序列：")
     print(continuous_ones_indices_test_label)
-    # 输出连续为1的词的连续行数的序号
+    print("预测序列：")
+    print(continuous_ones_indices_test)
+
+
+    # 计算两个序列完全相等的序列个数，即模型预测正确的个数，也就是TP
     overlap_count = count_overlap(continuous_ones_indices_test, continuous_ones_indices_test_label)
 
-    precition2 = overlap_count / class_counts1
     #test中总共有970个句子
     num_rows = 970
-    precition1 = overlap_count / num_rows
-
-    print('precition on test set:', precition1)
 
     # 找到 预测值和真实值 中值都为 1 的行的索引
 
@@ -525,16 +539,22 @@ if __name__ == "__main__":
     for start, end in resultlines:
         # 提取开始与结尾之间的行
         selected_rows = id_e_with_one_hot.iloc[start:end + 1]  # 加1是因为结束索引是不包含在内的
-        count += 1
+        first_row_id = selected_rows.iloc[0]['id']
+        first_index = x.tolist().index(first_row_id )
 
-        if listflag[id_index] == 0:
+        if listflag[first_index] == 0:
+            count += 1
             for idx, row in selected_rows.iterrows():
                 # 打印每一行的 id 列和 word 列
                 id_value = row['id']
                 id_index = x.tolist().index(id_value)
                 listflag[id_index] = 1
                 print("ID: {}, Word: {}, NO:{}".format(row['id'], row['word'], row['se']))
-                id_index += 1
 
     precition3 = count / num_rows
     print('precition on test set:', precition3)
+    # 预测错误的负例数=真实的正例数-预测正确的正例数
+    FN = len(continuous_ones_indices_test_label) - overlap_count
+    # recall=TP/(TP+FN)
+    recall = overlap_count / (overlap_count + FN)
+    print('recall on test set:', recall)
